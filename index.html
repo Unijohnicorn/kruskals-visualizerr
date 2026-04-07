@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kruskal's MST Ultimate Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a; --panel-bg: #1e293b; --accent-color: #38bdf8;
+            --text-main: #f8fafc; --text-dim: #94a3b8; --border-color: #334155;
+            --success: #22c55e; --danger: #ef4444; --warning: #eab308;
+            --edu-teal: #4fd1c5;
+            --btn-grad: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-color); color: var(--text-main); padding: 2rem; line-height: 1.5; }
+
+        #main-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 1400px; margin: 0 auto; gap: 1.5rem; }
+
+        .app-header { text-align: center; margin-bottom: 1rem; }
+        .app-header h1 { font-size: 3rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
+        .app-header p { color: var(--accent-color); font-weight: 500; font-size: 1.1rem; opacity: 0.9; }
+
+        /* Educational Content Section */
+        .welcome-card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; margin-bottom: 1rem; }
+        .welcome-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; cursor: pointer; transition: background 0.2s; }
+        .welcome-header:hover { background: #2d3a4f; }
+        .welcome-header b { font-size: 1.2rem; }
+        #overview-content { display: block; padding: 1.5rem; border-top: 1px solid var(--border-color); background: #162031; }
+        
+        .edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .edu-section h3 { color: var(--accent-color); margin-bottom: 0.8rem; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+        .edu-section p { font-size: 0.95rem; color: var(--text-dim); margin-bottom: 1rem; }
+
+        /* Layout - Two Column */
+        #app-container { display: flex; width: 100%; min-height: 1000px; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: var(--panel-bg); }
+        
+        /* Sidebar Control Panel */
+        #controls { width: 420px; border-right: 1px solid var(--border-color); padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; background: #111827; flex-shrink: 0; }
+        
+        /* Visualization Area */
+        #visualization { flex-grow: 1; display: flex; flex-direction: column; padding: 1.5rem; gap: 1.2rem; background: var(--bg-color); height: 1000px; overflow-y: auto; }
+
+        .card { background: #020617; padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border-color); position: relative; }
+        .card-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: block; }
+        
+        /* Pseudocode Panel with Tooltips and Internal Scroll */
+        .code-panel { max-height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 5px; background: #000; font-family: 'Fira Code', monospace; position: relative; }
+        .code-line { padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; color: var(--text-dim); cursor: help; position: relative; transition: 0.2s; border-left: 3px solid transparent; }
+        .code-line:hover { background: #1e293b; color: var(--text-main); }
+        .code-line.active { background: #1e293b; color: var(--warning); border-left-color: var(--warning); font-weight: bold; }
+
+        line, circle { transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1); }
+        .status-pill { padding: 2px 8px; border-radius: 4px; background: #334155; font-size: 0.75rem; color: var(--accent-color); font-weight: 700; }
+        
+        textarea { width: 100%; background: #000; color: var(--success); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: monospace; resize: none; outline: none; }
+        button { background: var(--btn-grad); color: white; border: 1px solid var(--border-color); padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        button:hover:not(:disabled) { border-color: var(--accent-color); background: #2d3a4f; }
+
+        /* Scrollable History Table */
+        #history-table-container { max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        #history-table { width: 100%; border-collapse: collapse; text-align: left; }
+        #history-table th { padding: 12px; border-bottom: 1px solid var(--border-color); color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; position: sticky; top: 0; background: #020617; }
+        #history-table td { padding: 10px 12px; font-size: 0.85rem; border-bottom: 1px solid #1e293b; color: var(--text-main); }
+        #history-table tr { cursor: pointer; transition: background 0.2s; }
+        #history-table tr:hover { background: #1e293b; }
+
+        .chart-container { height: 250px; width: 100%; }
+
+        /* Expandable Educational Section */
+        .edu-expandable { margin-top: 5px; }
+        .edu-expandable details { margin-bottom: 15px; }
+        .edu-expandable summary { 
+            color: var(--edu-teal); 
+            font-weight: 600; 
+            font-size: 1.1rem; 
+            cursor: pointer; 
+            list-style: none; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+        }
+        .edu-expandable summary::before { content: "▶"; font-size: 0.8rem; transition: transform 0.2s; }
+        .edu-expandable details[open] summary::before { transform: rotate(90deg); }
+        .edu-expandable .edu-content { 
+            padding-left: 25px; 
+            margin-top: 8px; 
+            color: var(--text-dim); 
+            font-size: 0.95rem; 
+            border-left: 2px solid #2d3748; 
+        }
+
+        @media (max-width: 980px) { 
+            #app-container { flex-direction: column; } 
+            #controls { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); } 
+        }
+    </style>
+</head>
+<body>
+
+<div id="main-wrapper">
+    <header class="app-header">
+        <h1>Kruskal's MST Visualizer</h1>
+        <p>BCS 309 — Algorithms I | Interactive Complexity Analysis</p>
+    </header>
+
+    <div class="welcome-card">
+        <div class="welcome-header" onclick="toggleOverview()">
+            <b>Educational Content & Algorithm Paradigm</b>
+            <button id="collapse-btn">COLLAPSE</button>
+        </div>
+        <div id="overview-content">
+            <div class="edu-grid">
+                <div class="edu-section">
+                    <h3>Design Paradigm: Greedy (CLO-3)</h3>
+                    <p>Kruskal's follows the <b>Greedy Paradigm</b>. It consistently picks the smallest weight edge available. In MST problems, this local choice leads to a global optimum.</p>
+                </div>
+                <div class="edu-section">
+                    <h3>Searching & Sorting (CLO-2)</h3>
+                    <p>The efficiency relies on sorting edges first. Without sorting, the algorithm fails to produce a <i>Minimum</i> Spanning Tree.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <aside id="controls">
+            <div class="card">
+                <span class="card-label">Graph Configuration</span>
+                <textarea id="graph-input" rows="4">A-B:4, A-H:8, B-C:8, B-H:11, C-D:7, C-I:2, C-F:4, D-E:9, D-F:14, E-F:10, F-G:2, G-H:1, G-I:6, H-I:7</textarea>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px;">
+                    <button onclick="loadPreset(1)">Preset 1</button>
+                    <button onclick="loadPreset(2)">Preset 2</button>
+                    <button onclick="loadPreset(3)">Preset 3</button>
+                    <button onclick="loadPreset(4)" style="color:var(--danger)">Worst Case</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-label">Execution Controls</span>
+                <button id="build-btn" style="width:100%; background: var(--accent-color); color: #000; margin-bottom: 10px;" onclick="parseInput()">Build Steps</button>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <button onclick="nextStep()">Step</button>
+                    <button onclick="playAnimation()">Play</button>
+                    <button onclick="pauseAnimation()">Pause</button>
+                    <button onclick="resetUI()">Reset</button>
+                </div>
+                <div style="margin-top:15px;">
+                    <div style="display:flex; justify-content: space-between; font-size:0.75rem; margin-bottom:5px;">
+                        <span>Speed: <b id="speed-val">1x</b></span>
+                        <span id="status-val" class="status-pill">IDLE</span>
+                    </div>
+                    <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1" style="width:100%;">
+                    <div id="total-steps-display" style="font-size: 0.8rem; color: var(--text-dim); margin-top: 8px;">Total Steps: 0</div>
+                </div>
+            </div>
+        </aside>
+
+        <main id="visualization">
+            <div class="card">
+                <span class="card-label">Step Detail</span>
+                <p id="explanation-text" style="color:var(--accent-color); font-weight:500;">Ready to visualize. Click "Build Steps" to initialize.</p>
+            </div>
+            
+            <div id="canvas-container" style="height: 400px; background:#020617; border-radius:12px; border:1px solid var(--border-color); position:relative; flex-shrink: 0;">
+                <svg id="svg-canvas" style="width:100%; height:100%"></svg>
+                <div style="position:absolute; bottom:15px; left:15px; background: rgba(2,6,23,0.8); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.8rem;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;"><div style="width:10px; height:10px; background:var(--success); border-radius:50%;"></div> MST Edge</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;"><div style="width:10px; height:10px; background:var(--danger); border-radius:50%;"></div> Cycle Rejected</div>
+                    <div style="display:flex; align-items:center; gap:8px;"><div style="width:10px; height:10px; background:var(--warning); border-radius:50%;"></div> Current Pointer (i)</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-label">Step History (Click any row to jump)</span>
+                <div id="history-table-container">
+                    <table id="history-table">
+                        <thead>
+                            <tr><th>Step</th><th>Edge</th><th>Weight</th><th>Result</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-label">Pseudocode Tracking</span>
+                <div class="code-panel" id="pseudo-panel">
+                    <div class="code-line" id="line-1" title="Sorting takes O(E log E) time.">1. Sort edges by weight (W)</div>
+                    <div class="code-line" id="line-2" title="Loop through every edge in sorted list.">2. For each edge (u, v) in W:</div>
+                    <div class="code-line" id="line-3" title="Use Union-Find to detect cycles.">3. If Find(u) != Find(v):</div>
+                    <div class="code-line" id="line-4" title="Edge is safe to add.">4. Add edge to MST</div>
+                    <div class="code-line" id="line-5" title="Merge the two components.">5. Union(u, v)</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-label">Complexity Growth (CLO-1)</span>
+                <div class="chart-container">
+                    <canvas id="complexityChart"></canvas>
+                </div>
+                <div style="display:flex; justify-content: space-around; margin-top:10px; font-size:0.8rem;">
+                    <span style="color:var(--warning)">● Actual Operations</span>
+                    <span style="color:var(--accent-color)">● O(E log E) Target</span>
+                    <span style="color:var(--success)">Total MST Cost: <b id="stat-cost">0</b></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <span class="card-label">Comprehensive Guide & CLO Review</span>
+                <div class="edu-expandable">
+                    <details open>
+                        <summary>Overview</summary>
+                        <div class="edu-content">Kruskal's algorithm finds the Minimum Spanning Tree (MST) for a weighted undirected graph by always picking the smallest available edge that does not create a cycle. It continues until all vertices are connected.</div>
+                    </details>
+                    <details>
+                        <summary>Worked Example</summary>
+                        <div class="edu-content">Build steps to see the narrated example. Each step highlights the current greedy choice and the state of the MST components.</div>
+                    </details>
+                    <details>
+                        <summary>Key Concepts</summary>
+                        <div class="edu-content">• <b>Greedy-choice property:</b> Selecting the local minimum weight edge ensures no better global solution exists.<br>• <b>Sorting by Weight:</b> Pre-sorting edges is the foundation that enables a simple linear scan of candidate edges.</div>
+                    </details>
+                    <details>
+                        <summary>Greedy Paradigm (CLO-3)</summary>
+                        <div class="edu-content">Visualize each greedy choice and compare how selecting the minimum-weight edge at every step (local optimization) builds the global minimum tree cost without needing to backtrack.</div>
+                    </details>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    class DSU {
+        constructor(nodes) { this.parent = {}; nodes.forEach(n => this.parent[n] = n); }
+        find(i) { if (this.parent[i] === i) return i; return this.parent[i] = this.find(this.parent[i]); }
+        union(i, j) { let rootI = this.find(i), rootJ = this.find(j); if (rootI !== rootJ) { this.parent[rootI] = rootJ; return true; } return false; }
+    }
+
+    let nodes = [], edges = [], steps = [], currentStepIndex = 0, totalCost = 0, ops = 0;
+    let isPlaying = false, animInterval = null, animSpeed = 1000;
+    let complexityChart = null;
+
+    function initChart() {
+        const ctx = document.getElementById('complexityChart').getContext('2d');
+        if (complexityChart) complexityChart.destroy();
+        complexityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Actual', data: [], borderColor: '#eab308', borderWidth: 2, tension: 0.3, pointRadius: 0
+                }, {
+                    label: 'Theoretical', data: [], borderColor: '#38bdf8', borderDash: [5, 5], borderWidth: 1, tension: 0.3, pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { display: false }, y: { grid: { color: '#1e293b' }, ticks: { display: false } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function setStatus(s) { document.getElementById('status-val').innerText = s.toUpperCase(); }
+
+    function toggleOverview() {
+        const content = document.getElementById('overview-content');
+        content.style.display = content.style.display === "none" ? "block" : "none";
+    }
+
+    function loadPreset(n) {
+        const presets = [
+            "A-B:4, A-H:8, B-C:8, B-H:11, C-D:7, C-I:2, C-F:4, D-E:9, D-F:14, E-F:10, F-G:2, G-H:1, G-I:6, H-I:7",
+            "A-E:9, B-D:5, C-A:6, A-B:3, B-E:7, D-C:2",
+            "A-B:1, B-C:2, C-A:3",
+            "A-B:1, A-C:1, A-D:1, B-C:1, B-D:1, C-D:1, D-E:1, E-F:1, F-G:1, G-A:1" 
+        ];
+        document.getElementById('graph-input').value = presets[n-1];
+        parseInput();
+    }
+
+    function parseInput() {
+        resetUI();
+        let str = document.getElementById('graph-input').value;
+        let nodeSet = new Set();
+        str.split(',').forEach(p => {
+            if(!p.includes(':')) return;
+            let [pair, weight] = p.trim().split(':');
+            let [u, v] = pair.split('-');
+            let edgeId = `e${Math.random().toString(36).substr(2, 5)}`;
+            edges.push({from:u.trim(), to:v.trim(), weight:parseInt(weight), id:edgeId});
+            nodeSet.add(u.trim()); nodeSet.add(v.trim());
+        });
+        nodes = Array.from(nodeSet).map(id => ({id}));
+        draw();
+        initAlg();
+        initChart();
+        setStatus("READY");
+    }
+
+    function draw() {
+        let svg = document.getElementById('svg-canvas');
+        svg.innerHTML = '';
+        let w = svg.clientWidth, h = svg.clientHeight, cx = w/2, cy = h/2, r = Math.min(w,h)*0.35;
+        nodes.forEach((n, i) => {
+            let a = (i/nodes.length)*2*Math.PI;
+            n.x = cx + r*Math.cos(a); n.y = cy + r*Math.sin(a);
+        });
+        edges.forEach(e => {
+            let u = nodes.find(n => n.id === e.from), v = nodes.find(n => n.id === e.to);
+            let l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            l.setAttribute("x1", u.x); l.setAttribute("y1", u.y); l.setAttribute("x2", v.x); l.setAttribute("y2", v.y);
+            l.setAttribute("stroke", "#334155"); l.setAttribute("stroke-width", "2"); l.setAttribute("id", e.id); svg.appendChild(l);
+            let t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            t.setAttribute("x", (u.x+v.x)/2); t.setAttribute("y", (u.y+v.y)/2 - 5); t.setAttribute("fill", "#64748b");
+            t.setAttribute("font-size", "12"); t.setAttribute("text-anchor", "middle"); t.textContent = e.weight; svg.appendChild(t);
+        });
+        nodes.forEach(n => {
+            let g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            let c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            c.setAttribute("cx", n.x); c.setAttribute("cy", n.y); c.setAttribute("r", "16");
+            c.setAttribute("fill", "#1e293b"); c.setAttribute("stroke", "#38bdf8"); c.setAttribute("stroke-width", "2");
+            let t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            t.setAttribute("x", n.x); t.setAttribute("y", n.y+5); t.setAttribute("text-anchor", "middle");
+            t.setAttribute("fill", "#fff"); t.setAttribute("font-weight", "bold"); t.textContent = n.id;
+            g.appendChild(c); g.appendChild(t); svg.appendChild(g);
+        });
+    }
+
+    function initAlg() {
+        let sorted = [...edges].sort((a,b) => a.weight - b.weight);
+        let dsu = new DSU(nodes.map(n => n.id));
+        steps = [];
+        sorted.forEach(e => {
+            let success = dsu.union(e.from, e.to);
+            steps.push({edge:e, type: success?'ACCEPTED':'REJECTED'});
+        });
+        // NEW: Update Total Steps count display
+        document.getElementById('total-steps-display').innerText = `Total Steps: ${steps.length}`;
+    }
+
+    function nextStep() {
+        if(currentStepIndex >= steps.length) { setStatus("DONE"); pauseAnimation(); return; }
+        
+        let s = steps[currentStepIndex];
+        let el = document.getElementById(s.edge.id);
+        
+        const oldP = document.getElementById('curr-ptr');
+        if(oldP) oldP.remove();
+        let ptr = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        ptr.setAttribute("id", "curr-ptr");
+        ptr.setAttribute("x", (parseFloat(el.getAttribute("x1")) + parseFloat(el.getAttribute("x2")))/2);
+        ptr.setAttribute("y", (parseFloat(el.getAttribute("y1")) + parseFloat(el.getAttribute("y2")))/2 - 20);
+        ptr.setAttribute("fill", "var(--warning)"); ptr.setAttribute("font-size", "14px"); ptr.setAttribute("font-weight", "bold");
+        ptr.textContent = `i = ${currentStepIndex}`;
+        document.getElementById('svg-canvas').appendChild(ptr);
+
+        // FIX: Internally scroll the panel, not the page
+        document.querySelectorAll('.code-line').forEach(l => l.classList.remove('active'));
+        const activeLine = document.getElementById(s.type === 'ACCEPTED' ? 'line-4' : 'line-3');
+        activeLine.classList.add('active');
+        
+        const panel = document.getElementById('pseudo-panel');
+        panel.scrollTop = activeLine.offsetTop - panel.offsetTop - 10;
+
+        if(s.type === 'ACCEPTED') {
+            el.setAttribute("stroke", "#22c55e"); el.setAttribute("stroke-width", "6");
+            totalCost += s.edge.weight;
+        } else {
+            el.setAttribute("stroke", "#ef4444"); el.setAttribute("stroke-dasharray", "4");
+        }
+
+        ops += Math.log2(edges.length || 1);
+        updateChartData();
+
+        let tbody = document.getElementById('history-table').querySelector('tbody');
+        let row = tbody.insertRow(0);
+        row.onclick = () => jumpToStep(steps.indexOf(s)); // Keep clickable logic
+        row.innerHTML = `<td>${currentStepIndex+1}</td><td>${s.edge.from}-${s.edge.to}</td><td>${s.edge.weight}</td><td style="color:${s.type==='ACCEPTED'?'#22c55e':'#ef4444'}">${s.type}</td>`;
+        
+        currentStepIndex++;
+        document.getElementById('stat-cost').innerText = totalCost;
+        document.getElementById('explanation-text').innerText = s.type === 'ACCEPTED' ? 
+            `Edge ${s.edge.from}-${s.edge.to} added to MST safely.` : `Edge ${s.edge.from}-${s.edge.to} rejected. Forms a cycle.`;
+    }
+
+    function jumpToStep(idx) {
+        pauseAnimation();
+        currentStepIndex = 0; totalCost = 0; ops = 0;
+        document.getElementById('history-table').querySelector('tbody').innerHTML = '';
+        draw();
+        initChart();
+        
+        // Re-run steps up to the index
+        for(let i=0; i<idx; i++) {
+            // Re-creating logic of nextStep silently to avoid visual artifacts
+            let s = steps[i];
+            let dsu = new DSU(nodes.map(n => n.id));
+            if(s.type === 'ACCEPTED') {
+                totalCost += s.edge.weight;
+                document.getElementById(s.edge.id).setAttribute("stroke", "#22c55e");
+                document.getElementById(s.edge.id).setAttribute("stroke-width", "6");
+            } else {
+                document.getElementById(s.edge.id).setAttribute("stroke", "#ef4444");
+                document.getElementById(s.edge.id).setAttribute("stroke-dasharray", "4");
+            }
+            ops += Math.log2(edges.length || 1);
+            updateChartData();
+            let tbody = document.getElementById('history-table').querySelector('tbody');
+            let row = tbody.insertRow(0);
+            row.onclick = () => jumpToStep(steps.indexOf(s));
+            row.innerHTML = `<td>${i+1}</td><td>${s.edge.from}-${s.edge.to}</td><td>${s.edge.weight}</td><td style="color:${s.type==='ACCEPTED'?'#22c55e':'#ef4444'}">${s.type}</td>`;
+            currentStepIndex++;
+        }
+        // Run the actual target step visually
+        nextStep();
+    }
+
+    function updateChartData() {
+        complexityChart.data.labels.push(currentStepIndex);
+        complexityChart.data.datasets[0].data.push(ops);
+        complexityChart.data.datasets[1].data.push(currentStepIndex * Math.log2(edges.length || 1));
+        complexityChart.update();
+    }
+
+    function playAnimation() { 
+        if(!isPlaying && currentStepIndex < steps.length) { isPlaying=true; setStatus("PLAYING"); animInterval=setInterval(nextStep, animSpeed); }
+    }
+
+    function pauseAnimation() { isPlaying=false; clearInterval(animInterval); if(currentStepIndex < steps.length) setStatus("PAUSED"); }
+
+    function resetUI() { 
+        pauseAnimation(); currentStepIndex=0; totalCost=0; ops=0; edges=[]; nodes=[]; 
+        document.getElementById('history-table').querySelector('tbody').innerHTML=''; 
+        document.getElementById('stat-cost').innerText='0'; 
+        // NEW: Reset Total Steps count display
+        document.getElementById('total-steps-display').innerText = 'Total Steps: 0';
+        draw(); setStatus("IDLE"); 
+        if(complexityChart) { complexityChart.data.labels = []; complexityChart.data.datasets.forEach(d => d.data = []); complexityChart.update(); }
+    }
+
+    document.getElementById('speed-slider').oninput = function() {
+        animSpeed = 1000 / this.value;
+        document.getElementById('speed-val').innerText = this.value + 'x';
+        if(isPlaying) { pauseAnimation(); playAnimation(); }
+    };
+
+    window.onload = () => { resetUI(); initChart(); };
+</script>
+</body>
+</html>
